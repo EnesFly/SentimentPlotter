@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Sentiment Analysis Service</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Sentiment Analysis Dashboard</h1>
+        </header>
+        <main>
+            <form id="analysisForm" class="analysis-form">
+                <div class="input-group">
+                    <label for="keywords">Keywords:</label>
+                    <input type="text" id="keywords" name="keywords" placeholder="Enter keywords" required>
+                </div>
+                <div class="input-group">
+                    <label for="startDate">Start Date:</label>
+                    <input type="date" id="startDate" name="startDate" required>
+                </div>
+                <div class="input-group">
+                    <label for="endDate">End Date:</label>
+                    <input type="date" id="endDate" name="endDate" required>
+                </div>
+                <div class="action-btns">
+                    <button type="submit" class="btn">Analyze</button>
+                </div>
+            </form>
+            <section id="results" class="results-section"></section>
+        </main>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script src="index.js"></script>
+</body>
+</html>
