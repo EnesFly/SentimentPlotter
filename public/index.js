@@ -10,117 +10,87 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-document.getElementById('analysisForm').addEventListener('submit', function(event) {
-  event.preventDefault();
+document.addEventListener('DOMContentLoaded', function () {
+  document.getElementById('analysisForm').addEventListener('submit', function(event) {
+      event.preventDefault();
 
-  const keywordsInput = document.getElementById('keywords').value;
-  const startDate = document.getElementById('startDate').value;
-  const endDate = document.getElementById('endDate').value;
-
-  if (!keywordsInput || !startDate || !endDate) {
-    alert('Please ensure all fields are filled out correctly.');
-    return;
-  }
-
-  // Clear previous results
-  const resultsSection = document.getElementById('results');
-  resultsSection.innerHTML = 'Analyzing data...';
-
-  // Call the Cloud Function via Firebase Hosting proxy
-  fetch('/processCsv')
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
+      const keyword = document.getElementById('keywords').value;
+      if (!keyword) {
+          alert('Please enter a keyword.');
+          return;
       }
-      return response.text();
-    })
-    .then(data => {
-      resultsSection.innerHTML += 'Cloud Function Analysis complete. Data: ' + data + '<br>';
-    })
-    .catch(error => {
-      resultsSection.innerHTML += 'Failed to retrieve analysis results from Cloud Function. Error: ' + error + '<br>';
-      console.error('Error:', error);
-    });
 
-  // Continue with existing functionality for Firestore data
-  const keywords = keywordsInput.split(',').map(keyword => keyword.trim());
-  unsubscribeListeners();
+      const resultsSection = document.getElementById('results');
+      resultsSection.innerHTML = 'Request sent. Waiting for data...';
 
-  keywords.forEach((keyword) => {
-      const listener = firebase.firestore()
-          .collection('sentiments')
-          .where('word', '==', keyword)
-          .where('timestamp', '>=', new Date(startDate))
-          .where('timestamp', '<=', new Date(endDate))
-          .onSnapshot(snapshot => {
-              const data = snapshot.docs.map(doc => doc.data());
-              if (data.length > 0) {
-                  plotData({ keyword, data });
-              } else {
-                  resultsSection.innerHTML += `No data found for keyword: ${keyword}<br>`;
-              }
-          });
-
-      activeListeners.push({ keyword, listener });
+      // Attempt to fetch data with retries
+      sendRequestWithRetry('/processCsv', keyword, 3); // Retry up to 3 times
   });
 });
 
-const activeListeners = [];
-
-function unsubscribeListeners() {
-  activeListeners.forEach(({ listener }) => listener());
-  activeListeners.length = 0;
-}
-
-function plotData({ keyword, data }) {
-  const resultsSection = document.getElementById('results');
-  let chartContainer = document.getElementById(`chart-${keyword}`);
-  if (!chartContainer) {
-      chartContainer = document.createElement('canvas');
-      chartContainer.id = `chart-${keyword}`;
-      resultsSection.appendChild(chartContainer);
-  }
-  const ctx = chartContainer.getContext('2d');
-
-  if (window[`chartInstance-${keyword}`]) {
-      window[`chartInstance-${keyword}`].destroy();
-  }
-
-  const timestamps = data.map(item => formatDate(item.timestamp));
-  const sentiments = data.map(item => item.sentiment);
-  const color = generateRandomColor();
-
-  const chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-          labels: timestamps,
-          datasets: [{
-              label: keyword,
-              data: sentiments,
-              borderColor: color,
-              borderWidth: 1
-          }]
-      },
-      options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          scales: {
-              x: { title: { display: true, text: 'Date' } },
-              y: { title: { display: true, text: 'Sentiment Analysis Result' } }
-          }
+function sendRequestWithRetry(url, keyword, retries) {
+  fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({keyword: keyword})
+  })
+  .then(response => {
+      if (!response.ok) throw new Error('Network response was not ok.');
+      return response.json();
+  })
+  .then(data => {
+      console.log("Received data from Cloud Function:", data);
+      listenForResults(keyword);
+  })
+  .catch(error => {
+      console.error('Attempt failed, retries left:', retries, error);
+      const resultsSection = document.getElementById('results');
+      if (retries > 0) {
+          console.log("Retrying...");
+          setTimeout(() => sendRequestWithRetry(url, keyword, retries - 1), 2000); // wait 2 seconds before retrying
+      } else {
+          resultsSection.innerHTML = 'Failed to retrieve analysis results after multiple attempts. Please try again later.';
       }
   });
-
-  window[`chartInstance-${keyword}`] = chart;
 }
 
-function formatDate(timestamp) {
-  const date = new Date(timestamp.seconds * 1000);
-  const year = date.getFullYear();
-  const month = ('0' + (date.getMonth() + 1)).slice(-2);
-  const day = ('0' + date.getDate()).slice(-2);
-  return `${year}-${month}-${day}`;
+
+
+function plotData(data) {
+  const resultsSection = document.getElementById('results');
+  const chartContainer = document.createElement('canvas');
+  chartContainer.id = `chart-${data.keyword}`;
+  resultsSection.appendChild(chartContainer);
+  const ctx = chartContainer.getContext('2d');
+
+  const dates = data.results.map(item => item.date);
+  const sentiments = data.results.map(item => item.average_polarity);
+  const color = generateRandomColor();
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [{
+        label: `Sentiment for ${data.keyword}`,
+        data: sentiments,
+        borderColor: color,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { title: { display: true, text: 'Date' } },
+        y: { title: { display: true, text: 'Sentiment Analysis Result' } }
+      }
+    }
+  });
+
+  console.log("Chart plotted for keyword:", data.keyword);
 }
 
 function generateRandomColor() {

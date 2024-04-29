@@ -14,24 +14,11 @@
             <h1>Sentiment Analysis Dashboard</h1>
         </header>
         <main>
-            <form id="analysisForm" class="analysis-form">
-                <div class="input-group">
-                    <label for="keywords">Keywords:</label>
-                    <input type="text" id="keywords" name="keywords" placeholder="Enter keywords" required>
-                </div>
-                <div class="input-group">
-                    <label for="startDate">Start Date:</label>
-                    <input type="date" id="startDate" name="startDate" required>
-                </div>
-                <div class="input-group">
-                    <label for="endDate">End Date:</label>
-                    <input type="date" id="endDate" name="endDate" required>
-                </div>
-                <div class="action-btns">
-                    <button type="submit" class="btn">Analyze</button>
-                </div>
+            <form id="analysisForm">
+                <input type="text" id="keywords" placeholder="Enter a keyword">
+                <button type="submit">Analyze Sentiment</button>
             </form>
-            <section id="results" class="results-section"></section>
+            <div id="results"></div>
         </main>
     </div>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
