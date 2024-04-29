@@ -8,9 +8,13 @@
     ],
     "rewrites": [
       {
+        "source": "/processCsv",
+        "function": "sentimentFunction"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
-    ]
+    ]      
   }
 }

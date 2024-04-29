@@ -19,14 +19,33 @@ document.getElementById('analysisForm').addEventListener('submit', function(even
   const endDate = document.getElementById('endDate').value;
 
   if (!keywordsInput || !startDate || !endDate) {
-      alert('Please ensure all fields are filled out correctly.');
-      return;
+    alert('Please ensure all fields are filled out correctly.');
+    return;
   }
 
+  // Clear previous results
+  const resultsSection = document.getElementById('results');
+  resultsSection.innerHTML = 'Analyzing data...';
+
+  // Call the Cloud Function via Firebase Hosting proxy
+  fetch('/processCsv')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.text();
+    })
+    .then(data => {
+      resultsSection.innerHTML += 'Cloud Function Analysis complete. Data: ' + data + '<br>';
+    })
+    .catch(error => {
+      resultsSection.innerHTML += 'Failed to retrieve analysis results from Cloud Function. Error: ' + error + '<br>';
+      console.error('Error:', error);
+    });
+
+  // Continue with existing functionality for Firestore data
   const keywords = keywordsInput.split(',').map(keyword => keyword.trim());
   unsubscribeListeners();
-  const resultsSection = document.getElementById('results');
-  resultsSection.innerHTML = '';
 
   keywords.forEach((keyword) => {
       const listener = firebase.firestore()
@@ -38,6 +57,8 @@ document.getElementById('analysisForm').addEventListener('submit', function(even
               const data = snapshot.docs.map(doc => doc.data());
               if (data.length > 0) {
                   plotData({ keyword, data });
+              } else {
+                  resultsSection.innerHTML += `No data found for keyword: ${keyword}<br>`;
               }
           });
 
