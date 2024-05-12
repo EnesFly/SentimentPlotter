@@ -1,5 +1,3 @@
-<!-- index.html -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,11 +12,11 @@
             <h1>Sentiment Analysis Dashboard</h1>
         </header>
         <main>
-            <form id="analysisForm">
-                <input type="text" id="keywords" placeholder="Enter a keyword">
-                <button type="submit">Analyze Sentiment</button>
+            <form id="analysisForm" class="input-group">
+                <input type="text" id="keywords" placeholder="Enter a keyword" class="input">
+                <button type="submit" class="btn">Analyze Sentiment</button>
             </form>
-            <div id="results"></div>
+            <div id="results" class="results-section"></div>
         </main>
     </div>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>

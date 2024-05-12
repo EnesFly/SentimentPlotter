@@ -13,12 +13,14 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// New code
 // Listen for submissions of the analysis form and trigger the cloud function
 document.getElementById('analysisForm')
     .addEventListener('submit', async function(event) {
       event.preventDefault();
       const keyword = document.getElementById('keywords').value;
+      const resultsSection = document.getElementById('results');
+      resultsSection.innerHTML = 'Processing...';
+
       if (keyword) {
         const response = await fetch('/processCsv', {
           method: 'POST',
@@ -32,11 +34,12 @@ document.getElementById('analysisForm')
           watchResults(keyword);
         } else {
           console.error('Failed to start analysis:', result);
+          resultsSection.innerHTML = 'Analysis failed. Please try again.';
         }
       }
     });
 
-// Function to watch the Firestore for updates
+// Watch for Firestore updates
 function watchResults(keyword) {
   db.collection('sentiment_analysis')
       .where('keyword', '==', keyword)
@@ -44,8 +47,10 @@ function watchResults(keyword) {
       .onSnapshot(snapshot => {
         snapshot.docChanges().forEach(change => {
           if (change.type === 'added') {
-            const data = change.doc.data();
-            plotData({keyword: data.keyword, results: data.results});
+            plotData({
+              keyword: change.doc.data().keyword,
+              results: change.doc.data().results
+            });
           }
         });
       });
@@ -58,7 +63,6 @@ function plotData(data) {
   chartContainer.id = `chart-${data.keyword}`;
   resultsSection.appendChild(chartContainer);
   const ctx = chartContainer.getContext('2d');
-
   const dates = data.results.map(item => item.date);
   const sentiments = data.results.map(item => item.average_polarity);
   const color = generateRandomColor();
@@ -88,8 +92,6 @@ function plotData(data) {
 }
 
 function generateRandomColor() {
-  const r = Math.floor(Math.random() * 256);
-  const g = Math.floor(Math.random() * 256);
-  const b = Math.floor(Math.random() * 256);
-  return `rgb(${r}, ${g}, ${b})`;
+  return `rgb(${Math.floor(Math.random() * 256)}, ${
+      Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)})`;
 }
