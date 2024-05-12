@@ -1,3 +1,4 @@
+// Existing code
 // Initialize Firebase
 const firebaseConfig = {
   apiKey: 'AIzaSyBe_QqXnaDC465AgwZNKGJVxWMHtb-_Asw',
@@ -12,54 +13,47 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-document.addEventListener('DOMContentLoaded', function () {
-  document.getElementById('analysisForm').addEventListener('submit', function(event) {
+// New code
+// Listen for submissions of the analysis form and trigger the cloud function
+document.getElementById('analysisForm')
+    .addEventListener('submit', async function(event) {
       event.preventDefault();
-
       const keyword = document.getElementById('keywords').value;
-      if (!keyword) {
-          alert('Please enter a keyword.');
-          return;
+      if (keyword) {
+        const response = await fetch('/processCsv', {
+          method: 'POST',
+          body: JSON.stringify({keyword: keyword}),
+          headers: {'Content-Type': 'application/json'}
+        });
+        watchResults(keyword);
+        const result = await response.json();
+        if (result.status === 'done') {
+          console.log('Analysis started, waiting for results...');
+          watchResults(keyword);
+        } else {
+          console.error('Failed to start analysis:', result);
+        }
       }
+    });
 
-      const resultsSection = document.getElementById('results');
-      resultsSection.innerHTML = 'Request sent. Waiting for data...';
-
-      // Attempt to fetch data with retries
-      sendRequestWithRetry('/processCsv', keyword, 3); // Retry up to 3 times
-  });
-});
-
-function sendRequestWithRetry(url, keyword, retries) {
-  fetch(url, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({keyword: keyword})
-  })
-  .then(response => {
-      if (!response.ok) throw new Error('Network response was not ok.');
-      return response.json();
-  })
-  .then(data => {
-      console.log("Received data from Cloud Function:", data);
-      listenForResults(keyword);
-  })
-  .catch(error => {
-      console.error('Attempt failed, retries left:', retries, error);
-      const resultsSection = document.getElementById('results');
-      if (retries > 0) {
-          console.log("Retrying...");
-          setTimeout(() => sendRequestWithRetry(url, keyword, retries - 1), 2000); // wait 2 seconds before retrying
-      } else {
-          resultsSection.innerHTML = 'Failed to retrieve analysis results after multiple attempts. Please try again later.';
-      }
-  });
+// Function to watch the Firestore for updates
+function watchResults(keyword) {
+  db.collection('sentiment_analysis')
+      .where('keyword', '==', keyword)
+      .where('status', '==', 'completed')
+      .onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            plotData({keyword: data.keyword, results: data.results});
+          }
+        });
+      });
 }
-
-
 
 function plotData(data) {
   const resultsSection = document.getElementById('results');
+  resultsSection.innerHTML = '';  // Clear previous results
   const chartContainer = document.createElement('canvas');
   chartContainer.id = `chart-${data.keyword}`;
   resultsSection.appendChild(chartContainer);
@@ -82,15 +76,15 @@ function plotData(data) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: false,
+      maintainAspectRatio: true,
       scales: {
-        x: { title: { display: true, text: 'Date' } },
-        y: { title: { display: true, text: 'Sentiment Analysis Result' } }
+        x: {title: {display: true, text: 'Date'}},
+        y: {title: {display: true, text: 'Sentiment Analysis Result'}}
       }
     }
   });
 
-  console.log("Chart plotted for keyword:", data.keyword);
+  console.log('Chart plotted for keyword:', data.keyword);
 }
 
 function generateRandomColor() {
