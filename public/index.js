@@ -19,7 +19,7 @@ document.getElementById('analysisForm')
       event.preventDefault();
       const keyword = document.getElementById('keywords').value;
       const resultsSection = document.getElementById('results');
-      resultsSection.innerHTML = 'Processing...';
+      resultsSection.innerHTML = '<div class="loader"></div>';
 
       if (keyword) {
         const response = await fetch('/processCsv', {
