@@ -17,21 +17,21 @@ const db = firebase.firestore();
 document.getElementById('analysisForm')
     .addEventListener('submit', async function(event) {
       event.preventDefault();
-      const keyword = document.getElementById('keywords').value;
+      const keywords = document.getElementById('keywords').value;
       const resultsSection = document.getElementById('results');
       resultsSection.innerHTML = '<div class="loader"></div>';
 
-      if (keyword) {
+      if (keywords) {
         const response = await fetch('/processCsv', {
           method: 'POST',
-          body: JSON.stringify({keyword: keyword}),
+          body: JSON.stringify({keywords: keywords}),
           headers: {'Content-Type': 'application/json'}
         });
-        watchResults(keyword);
+        watchResults(keywords.split(',').map(kw => kw.trim()));
         const result = await response.json();
         if (result.status === 'done') {
           console.log('Analysis started, waiting for results...');
-          watchResults(keyword);
+          watchResults(keywords.split(',').map(kw => kw.trim()));
         } else {
           console.error('Failed to start analysis:', result);
           resultsSection.innerHTML = 'Analysis failed. Please try again.';
@@ -40,31 +40,30 @@ document.getElementById('analysisForm')
     });
 
 // Watch for Firestore updates
-function watchResults(keyword) {
-  db.collection('sentiment_analysis')
-      .where('keyword', '==', keyword)
-      .where('status', '==', 'completed')
-      .onSnapshot(snapshot => {
-        snapshot.docChanges().forEach(change => {
-          if (change.type === 'added') {
-            plotData({
-              keyword: change.doc.data().keyword,
-              results: change.doc.data().results
-            });
-          }
+function watchResults(keywords) {
+  keywords.forEach(keyword => {
+    db.collection('sentiment_analysis')
+        .where('keywords', 'array-contains', keyword)
+        .where('status', '==', 'completed')
+        .onSnapshot(snapshot => {
+          snapshot.docChanges().forEach(change => {
+            if (change.type === 'added') {
+              removeLoader();
+              plotData(change.doc.data().results[keyword], keyword);
+            }
+          });
         });
-      });
+  });
 }
 
-function plotData(data) {
+function plotData(data, keyword) {
   const resultsSection = document.getElementById('results');
-  resultsSection.innerHTML = '';  // Clear previous results
   const chartContainer = document.createElement('canvas');
-  chartContainer.id = `chart-${data.keyword}`;
+  chartContainer.id = `chart-${keyword}`;
   resultsSection.appendChild(chartContainer);
   const ctx = chartContainer.getContext('2d');
-  const dates = data.results.map(item => item.date);
-  const sentiments = data.results.map(item => item.average_polarity);
+  const dates = data.map(item => item.date);
+  const sentiments = data.map(item => item.average_polarity);
   const color = generateRandomColor();
 
   new Chart(ctx, {
@@ -72,7 +71,7 @@ function plotData(data) {
     data: {
       labels: dates,
       datasets: [{
-        label: `Sentiment for ${data.keyword}`,
+        label: `Sentiment for ${keyword}`,
         data: sentiments,
         borderColor: color,
         borderWidth: 1
@@ -88,7 +87,14 @@ function plotData(data) {
     }
   });
 
-  console.log('Chart plotted for keyword:', data.keyword);
+  console.log('Chart plotted for keyword:', keyword);
+}
+
+function removeLoader() {
+  const loader = document.querySelector('.loader');
+  if (loader) {
+    loader.remove();
+  }
 }
 
 function generateRandomColor() {
